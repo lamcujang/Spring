@@ -1,0 +1,42 @@
+databaseChangeLog:
+  -  preConditions:
+
+  -  changeSet:
+      id: createTenantsTable
+      author:  dbiz
+#      validCheckSum: 8:544667fa144a120216c444f688997d98
+      changes:
+        -  createTable:
+             columns:
+               - column:
+                   name: id
+                   type: bigint
+               - column:
+                   name: name
+                   type: varchar
+               - column:
+                   name: db_name
+                   type: varchar
+               - column:
+                   name: user_name
+                   type: varchar
+               - column:
+                   name: db_password
+                   type: varchar
+               - column:
+                   name: creation_status
+                   type: varchar
+             schemaName: pos
+             tableName: tenants
+
+  - changeSet:
+      id: createTenantsIdSequence
+      author: dbiz
+#      validCheckSum: 8:c6cb230129c04560805b73e4d3208f23
+      changes:
+        - createSequence:
+            dataType: bigint
+            minValue: 2
+            incrementBy: 1
+            schemaName: pos
+            sequenceName: tenants_id_seq

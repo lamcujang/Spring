@@ -1,0 +1,64 @@
+databaseChangeLog:
+  -  preConditions:
+
+  -  changeSet:
+      id: createUsersTable
+      author: dbiz
+      changes:
+        -  createTable:
+             columns:
+               - column:
+                   name: id
+                   type: bigint
+               - column:
+                   name: email
+                   type: varchar
+               - column:
+                   name: password
+                   type: varchar
+               - column:
+                   name: tenant_id
+                   type: bigint
+             schemaName: pos
+             tableName: users
+
+  - changeSet:
+      id: createUsersIdSequence
+      author: dbiz
+      changes:
+        - createSequence:
+            dataType: bigint
+            minValue: 3
+            incrementBy: 1
+            schemaName: pos
+            sequenceName: users_id_seq
+
+  - changeSet:
+      id: addDefaultValueForUserId
+      author: dbiz
+      changes:
+        - addDefaultValue:
+            columnDataType: bigint
+            columnName: id
+            defaultValueSequenceNext: users_id_seq
+            schemaName: pos
+            tableName: users
+
+  - changeSet:
+      id: createDefaultSysAdmin
+      author: dbiz
+      changes:
+        - insert:
+            columns:
+              - column:
+                  name: id
+                  value: 1
+              - column:
+                  name: email
+                  value: defaultSysAdmin@gmail.com
+              - column:
+                  name: password
+#                 bcrypted value of "JustAPasswordForDefaultSysAdmin"
+                  value: $2a$12$YZMtG18Z4JPNPyn7WhsdZuncgsvAIbdQjn2fPp/Bx0.iXCyp4V0GS
+            schemaName: pos
+            tableName: users

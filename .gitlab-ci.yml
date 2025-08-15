@@ -1,0 +1,577 @@
+
+stages:
+  - setup
+  - package
+  - build
+  - deploy
+
+variables:
+  DOCKER_USER: duytien0704
+  IMAGE_VERSION: 0.1.0
+  DOCKER_MAVEN_IMAGE: duytien0704/verify-mvn-service:0.1.0
+  COMMON_MODULE_VERSION: 1.0-SNAPSHOT
+  ENVIRONMENT: dev
+  GIT_DEPTH: 0
+
+
+# SERVICE DISCOVERY
+
+package-service-discovery-container:
+  stage: package
+  script:
+
+    - echo "Packaging Service Discovery for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/service-discovery:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+
+  artifacts:
+    paths:
+      - service-discovery/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/service-discovery"'
+
+build-service-discovery-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Service Discovery..."
+    - docker build -t $DOCKER_USER/service-discovery:$IMAGE_VERSION -f ./service-discovery/Dockerfile ./service-discovery
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/service-discovery"'
+
+deploy-service-discovery-container:
+  stage: deploy
+  script:
+    - echo "Deploying Service Discovery for $ENVIRONMENT environment..."
+    - docker stop service-discovery-container || true
+    - docker rm service-discovery-container || true
+    - docker run --cpus="2.0" -d --name service-discovery-container --network backend -p 8761:8761 --env-file ./$ENVIRONMENT.env $DOCKER_USER/service-discovery:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/service-discovery"'
+
+
+# API GATEWAY
+
+package-api-gateway-container:
+  stage: package
+  script:
+    - echo "Packaging API Gateway for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/api-gateway:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - api-gateway/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/api-gateway"'
+
+build-api-gateway-container:
+  stage: build
+  script:
+    - echo "Building Docker image for API Gateway..."
+    - docker build -t $DOCKER_USER/api-gateway:$IMAGE_VERSION -f ./api-gateway/Dockerfile ./api-gateway
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/api-gateway"'
+
+deploy-api-gateway-container:
+  stage: deploy
+  script:
+    - echo "Deploying API Gateway for $ENVIRONMENT environment..."
+    - docker stop api-gateway-container || true
+    - docker rm api-gateway-container || true
+    - docker run --cpus="2.0" -d --name api-gateway-container --network backend -p 8443:8443 --env-file ./$ENVIRONMENT.env $DOCKER_USER/api-gateway:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/api-gateway"'
+
+
+
+# SYSTEM SERVICE
+
+package-system-service-container:
+  stage: package
+  script:
+    - echo "Packaging System Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/system-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - system-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/system-service"'
+
+build-system-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for System Service..."
+    - docker build -t $DOCKER_USER/system-service:$IMAGE_VERSION -f ./system-service/Dockerfile ./system-service
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/system-service"'
+
+deploy-system-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying System Service for $ENVIRONMENT environment..."
+    - docker stop system-service-container || true
+    - docker rm system-service-container || true
+    - docker run --cpus="2.0" -d --name system-service-container --network backend -p 8702:8702 --env-file ./$ENVIRONMENT.env $DOCKER_USER/system-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/system-service"'
+
+
+# PROXY CLIENT
+package-proxy-client-container:
+  stage: package
+  script:
+    - echo "Packaging Proxy Client for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/proxy-client:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - proxy-client/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/proxy-client"'
+
+build-proxy-client-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Proxy Client..."
+    - docker build -t $DOCKER_USER/proxy-client:$IMAGE_VERSION -f ./proxy-client/Dockerfile ./proxy-client
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/proxy-client"'
+
+deploy-proxy-client-container:
+  stage: deploy
+  script:
+    - echo "Deploying Proxy Client for $ENVIRONMENT environment..."
+    - docker stop proxy-client-container || true
+    - docker rm proxy-client-container || true
+    - docker run --cpus="2.0" -d --name proxy-client-container --network backend -p 8900:8900 --env-file ./$ENVIRONMENT.env $DOCKER_USER/proxy-client:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/proxy-client"'
+
+
+# TENANT SERVICE
+package-tenant-service-container:
+  stage: package
+  script:
+    - echo "Packaging Tenant Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/tenant-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - tenant-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/tenant-service"'
+
+refresh-tenant-module:
+  stage: package
+  script:
+    - echo "Refreshing Tenant Module for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/tenant-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean install
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/tenant-service"'
+
+build-tenant-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Tenant Service..."
+    - docker build -t $DOCKER_USER/tenant-service:$IMAGE_VERSION -f ./tenant-service/Dockerfile ./tenant-service
+  #    - docker push $DOCKER_USER/tenant-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/tenant-service"'
+
+deploy-tenant-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Tenant Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/tenant-service:$IMAGE_VERSION
+    - docker stop tenant-service-container || true
+    - docker rm tenant-service-container || true
+    - docker run --cpus="2.0" -d --name tenant-service-container --network backend -p 8701:8701 --env-file ./$ENVIRONMENT.env $DOCKER_USER/tenant-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/tenant-service"'
+
+
+#USER SERVICE
+package-user-service-container:
+  stage: package
+  script:
+    - echo "Packaging User Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/user-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - user-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/user-service"'
+
+build-user-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for User Service..."
+    - docker build -t $DOCKER_USER/user-service:$IMAGE_VERSION -f ./user-service/Dockerfile ./user-service
+  #    - docker push $DOCKER_USER/user-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/user-service"'
+
+deploy-user-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying User Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/user-service:$IMAGE_VERSION
+    - docker stop user-service-container || true
+    - docker rm user-service-container || true
+    - docker run --cpus="2.0" -d --name user-service-container --network backend -p 8700:8700 --env-file ./$ENVIRONMENT.env $DOCKER_USER/user-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/user-service"'
+
+#PRODUCT SERVICE
+package-product-service-container:
+  stage: package
+  script:
+    - echo "Packaging Product Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/product-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - product-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/product-service"'
+
+build-product-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Product Service..."
+    - docker build -t $DOCKER_USER/product-service:$IMAGE_VERSION -f ./product-service/Dockerfile ./product-service
+  #    - docker push $DOCKER_USER/product-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/product-service"'
+
+deploy-product-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Product Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/product-service:$IMAGE_VERSION
+    - docker stop product-service-container || true
+    - docker rm product-service-container || true
+    - docker run --cpus="2.0" -d --name product-service-container --network backend -p 8500:8500 --env-file ./$ENVIRONMENT.env $DOCKER_USER/product-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/product-service"'
+
+
+
+
+#ORDER SERVICE
+package-order-service-container:
+  stage: package
+  script:
+    - echo "Packaging Order Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/order-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - order-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/order-service"'
+
+build-order-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Order Service..."
+    - docker build -t $DOCKER_USER/order-service:$IMAGE_VERSION -f ./order-service/Dockerfile ./order-service
+  #    - docker push $DOCKER_USER/order-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/order-service"'
+
+deploy-order-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Order Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/order-service:$IMAGE_VERSION
+    - docker stop order-service-container || true
+    - docker rm order-service-container || true
+    - docker run --cpus="2.0" -d --name order-service-container --network backend -p 8300:8300 --env-file ./$ENVIRONMENT.env $DOCKER_USER/order-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/order-service"'
+
+
+#PAYMENT SERVICE
+package-payment-service-container:
+  stage: package
+  script:
+    - echo "Packaging Payment Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/payment-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - payment-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/payment-service"'
+
+build-payment-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Payment Service..."
+    - docker build -t $DOCKER_USER/payment-service:$IMAGE_VERSION -f ./payment-service/Dockerfile ./payment-service
+  #    - docker push $DOCKER_USER/payment-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/payment-service"'
+
+deploy-payment-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Payment Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/payment-service:$IMAGE_VERSION
+    - docker stop payment-service-container || true
+    - docker rm payment-service-container || true
+    - docker run --cpus="2.0" -d --name payment-service-container --network backend -p 8400:8400 --env-file ./$ENVIRONMENT.env $DOCKER_USER/payment-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/payment-service"'
+#REFRESH COMMON
+
+refresh-common-module:
+  stage: package
+  script:
+    - echo "Refreshing Common Module for  environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/common-service:/app/common -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/common $DOCKER_MAVEN_IMAGE mvn clean install
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/common-service"'
+
+
+#INIT SOURCE MAVEN POM
+init-maven-source:
+  stage: package
+  script:
+    - echo "Copying ecommerce-microservice-backend POM... $ENVIRONMENT"
+    - mkdir -p $CI_PROJECT_DIR/.m2/repository/com/dbiz/ecommerce-microservice-backend/0.1.0
+    - cp $PWD/pom.xml $CI_PROJECT_DIR/.m2/repository/com/dbiz/ecommerce-microservice-backend/0.1.0/ecommerce-microservice-backend-0.1.0.pom
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "$ENVIRONMENT/common-service"'
+
+
+
+#Integration SERVICE
+package-integration-service-container:
+  stage: package
+  script:
+    - echo "Packaging Integration Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/integration-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - integration-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/integration-service"'
+
+build-integration-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Integration Service..."
+    - docker build -t $DOCKER_USER/integration-service:$IMAGE_VERSION -f ./integration-service/Dockerfile ./integration-service
+  #    - docker push $DOCKER_USER/integration-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/integration-service"'
+
+deploy-integration-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Integration Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/integration-service:$IMAGE_VERSION
+    - docker stop integration-service-container || true
+    - docker rm integration-service-container || true
+    - docker run --cpus="2.0" -d --name integration-service-container --network backend -p 8703:8703 --env-file ./$ENVIRONMENT.env $DOCKER_USER/integration-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/integration-service"'
+
+
+
+#INVENTORY SERVICE
+package-inventory-service-container:
+  stage: package
+  script:
+    - echo "Packaging Inventory Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/inventory-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - inventory-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/inventory-service"'
+
+build-inventory-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Inventory Service..."
+    - docker build -t $DOCKER_USER/inventory-service:$IMAGE_VERSION -f ./inventory-service/Dockerfile ./inventory-service
+  #    - docker push $DOCKER_USER/inventory-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/inventory-service"'
+
+deploy-inventory-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Inventory Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/inventory-service:$IMAGE_VERSION
+    - docker stop inventory-service-container || true
+    - docker rm inventory-service-container || true
+    - docker run --cpus="2.0" -d --name inventory-service-container --network backend -p 8704:8704 --env-file ./$ENVIRONMENT.env $DOCKER_USER/inventory-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/inventory-service"'
+
+#REPORT SERVICE
+package-report-service-container:
+  stage: package
+  script:
+    - echo "Packaging Inventory Service for $ENVIRONMENT environment..."
+    - docker run --cpus="2.0" --rm -v $PWD/report-service:/app/service -v $PWD/shared:/app -v $CI_PROJECT_DIR/.m2:/root/.m2 -w /app/service $DOCKER_MAVEN_IMAGE mvn clean package
+  artifacts:
+    paths:
+      - report-service/target/*.jar
+  cache:
+    key: maven-cache
+    paths:
+      - .m2/repository
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/report-service"'
+
+build-report-service-container:
+  stage: build
+  script:
+    - echo "Building Docker image for Inventory Service..."
+    - docker build -t $DOCKER_USER/report-service:$IMAGE_VERSION -f ./report-service/Dockerfile ./report-service
+  #    - docker push $DOCKER_USER/report-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/report-service"'
+
+deploy-report-service-container:
+  stage: deploy
+  script:
+    - echo "Deploying Inventory Service for $ENVIRONMENT environment..."
+    #    - docker pull $DOCKER_USER/report-service:$IMAGE_VERSION
+    - docker stop report-service-container || true
+    - docker rm report-service-container || true
+    - docker run --cpus="2.0" -d --name report-service-container --network backend -p 8705:8705 --env-file ./$ENVIRONMENT.env $DOCKER_USER/report-service:$IMAGE_VERSION
+  tags:
+    - "$ENVIRONMENT"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev/report-service"'
+

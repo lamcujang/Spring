@@ -1,0 +1,549 @@
+create function d_query_engine(tablename text, json_input json, page_size integer DEFAULT '-1'::integer, page integer DEFAULT '-1'::integer, order_by text DEFAULT ''::text) returns refcursor
+    language plpgsql
+as
+$$
+DECLARE
+    cur_type refcursor;
+    sql_query TEXT := '';
+    key TEXT;
+    value JSONB;
+    sta TEXT;
+    logical TEXT;
+    rel TEXT;
+    name_c TEXT;
+    cond TEXT := '';
+    val TEXT := '';
+    order_by_clause TEXT := '';
+    limit_clause TEXT := '';
+    offset_clause TEXT := '';
+   	pre_number TEXT;
+   	aft_number TEXT;
+   	arr_in text[];
+   	arr_out text := '' ;
+   	item text;
+   	item1 INTEGER;
+   	is_first BOOLEAN := TRUE;
+begin
+	cur_type := 'cur_type';
+    -- Kiểm tra nếu json_input là object
+    IF json_typeof(json_input) != 'object' THEN
+        RAISE EXCEPTION 'Input JSON must be an object';
+    END IF;
+
+
+    FOR key IN (SELECT json_object_keys(json_input))
+    LOOP
+       	value := json_input -> key;
+        name_c := value ->> 'name';
+        sta := value ->> 'sta';
+
+        logical := value ->> 'logical';
+       	rel := value ->> 'rel';
+
+       	if logical in ('is null', 'is not null') then
+        	IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || '  ' || name_c || ' ' || logical  || ' ) ' || rel || ' ';
+        	ELSE
+                cond := cond || '  ' || name_c || ' ' || logical || ' ' || rel || ' ';
+          	END IF;
+        	continue;
+        end if;
+
+        if(jsonb_typeof(value-> 'value') is null) then
+       		continue;
+       end if;
+
+
+        RAISE NOTICE 'sta: %', sta;
+        IF logical = 'between' then
+        	pre_number := value -> 'value' ->> 0 || ' 00:00:00';
+           	aft_number := value -> 'value' ->> 1 || ' 23:59:59';
+        	IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''')' || rel || ' ';
+        	ELSE
+                 cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''' ' || rel || ' ';
+            END IF;
+        	continue;
+       	elseif logical in ('in', 'not in') then
+       		if jsonb_typeof(value-> 'value' -> 0) = 'string' then
+       			SELECT ARRAY(SELECT jsonb_array_elements_text(value->'value')) INTO arr_in;
+
+       			FOREACH item IN ARRAY arr_in loop
+		       		raise notice 'item %', item;
+	        		IF NOT is_first THEN
+	            		arr_out := arr_out || ',';
+	       			END IF;
+	        			arr_out := arr_out || '''' || item|| '''';
+	        			is_first := FALSE;
+    			END LOOP;
+       		else
+       			SELECT ARRAY(SELECT jsonb_array_elements(value->'value')) INTO arr_in;
+
+       			FOREACH item1 IN ARRAY arr_in loop
+		       		raise notice 'item %', item1;
+	        		IF NOT is_first THEN
+	            		arr_out := arr_out || ',';
+	       			END IF;
+	        			arr_out := arr_out || '' || item1 || '';
+	        			is_first := FALSE;
+    			END LOOP;
+       		end if;
+
+         arr_out := '(' || arr_out || ')';
+    	 RAISE NOTICE 'ARR: %', arr_out;
+
+			IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ) ' || rel || ' ';
+        	ELSE
+                cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+            END IF;
+           continue;
+        END IF;
+
+        -- Determine if value is string or number and format appropriately
+        IF logical = 'like' THEN
+           val := '''%' || lower(replace(value ->> 'value', '''', '''''')) || '%''';
+           name_c := 'lower(' || name_c || ')';
+--          name_c := lower(name_c);
+        ELSE
+        	raise notice 'type of: %', jsonb_typeof(value -> 'value');
+        	if jsonb_typeof(value -> 'value') = 'string' then
+        		 val := '''' || replace(value ->> 'value', '''', '''''') || '''';
+        	else
+            	val := value ->> 'value';
+           	end if;
+        END IF;
+
+        -- Check status and build conditions
+        IF sta = 'START' THEN
+            cond := cond || ' (' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+        ELSIF sta = 'END' THEN
+            IF rel = 'NONE' THEN
+                cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ';
+            ELSE
+                cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ' || rel || ' ';
+            END IF;
+        ELSE
+            cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+        END IF;
+    END LOOP;
+
+   IF cond ~ ' NONE $' or cond ~ ' AND $' or cond ~ ' OR $' THEN
+        cond := regexp_replace(cond, ' NONE $', '');
+       	cond := regexp_replace(cond, ' AND $', '');
+      	cond := regexp_replace(cond, ' OR $', '');
+   END IF;
+
+  raise notice 'cond: %' ,cond;
+
+   IF cond != '' THEN
+   	cond := ' AND ' || cond;
+   END IF;
+
+    -- Build final SQL query
+    sql_query := 'SELECT * FROM ' || tableName || ' WHERE 1 = 1 ' || cond;
+
+    -- ORDER BY condition
+    IF order_by != '' THEN
+    	sql_query := sql_query || ' ORDER BY ' || order_by || ' ' ;
+    end if;
+
+    -- LIMIT condition
+    IF page_size > -1 THEN
+         sql_query := sql_query || ' LIMIT ' || page_size;
+    END IF;
+
+    -- OFFSET condition
+    IF page_size > -1 AND page > -1 THEN
+        sql_query := sql_query || ' OFFSET ' || (page * page_size);
+    END IF;
+
+    -- Execute dynamic SQL
+    RAISE NOTICE 'QUERY: %', sql_query;
+    OPEN cur_type FOR EXECUTE sql_query;
+
+    RETURN cur_type;
+END $$;
+
+alter function d_query_engine(text, json, integer, integer, text) owner to usr_928460c388b4;
+
+
+
+
+
+/// Thanhnc fix phan in va not in
+
+
+
+
+create function d_query_engine2(tablename text, json_input json, page_size integer DEFAULT '-1'::integer,
+                                page integer DEFAULT '-1'::integer, order_by text DEFAULT ''::text) returns refcursor
+    language plpgsql
+as
+$$
+DECLARE
+    cur_type        refcursor;
+    sql_query       TEXT    := '';
+    key             TEXT;
+    value           JSONB;
+    sta             TEXT;
+    logical         TEXT;
+    rel             TEXT;
+    name_c          TEXT;
+    cond            TEXT    := '';
+    val             TEXT    := '';
+    order_by_clause TEXT    := '';
+    limit_clause    TEXT    := '';
+    offset_clause   TEXT    := '';
+    pre_number      TEXT;
+    aft_number      TEXT;
+    arr_in          text[];
+    arr_out         text    := '' ;
+    item            text;
+    item1           INTEGER;
+    is_first        BOOLEAN := TRUE;
+begin
+    cur_type := 'cur_type';
+    -- Kiểm tra nếu json_input là object
+    IF json_typeof(json_input) != 'object' THEN
+        RAISE EXCEPTION 'Input JSON must be an object';
+    END IF;
+
+
+    FOR key IN (SELECT json_object_keys(json_input))
+        LOOP
+            value := json_input -> key;
+            name_c := value ->> 'name';
+            sta := value ->> 'sta';
+
+            logical := value ->> 'logical';
+            rel := value ->> 'rel';
+
+            if logical in ('is null', 'is not null') then
+                IF sta = 'START' then
+                    cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || rel || ' ';
+                ELSIF sta = 'END' then
+                    cond := cond || '  ' || name_c || ' ' || logical || ' ) ' || rel || ' ';
+                ELSE
+                    cond := cond || '  ' || name_c || ' ' || logical || ' ' || rel || ' ';
+                END IF;
+                continue;
+            end if;
+
+            if (jsonb_typeof(value -> 'value') is null) then
+                continue;
+            end if;
+
+
+            RAISE NOTICE 'sta: %', sta;
+            IF logical = 'between' then
+                pre_number := value -> 'value' ->> 0 || ' 00:00:00';
+                aft_number := value -> 'value' ->> 1 || ' 23:59:59';
+                IF sta = 'START' then
+                    cond := cond || ' ( ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number ||
+                            ''' ' || rel || ' ';
+                ELSIF sta = 'END' then
+                    cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number ||
+                            ''')' || rel || ' ';
+                ELSE
+                    cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number ||
+                            ''' ' || rel || ' ';
+                END IF;
+                continue;
+            elseIF logical in ('in', 'not in') THEN
+                -- Reset giá trị mỗi lần lặp để không dính giá trị từ lần trước
+                arr_out := '';
+                is_first := TRUE;
+
+                IF jsonb_typeof(value -> 'value' -> 0) = 'string' THEN
+                    SELECT ARRAY(SELECT jsonb_array_elements_text(value -> 'value')) INTO arr_in;
+
+                    FOREACH item IN ARRAY arr_in
+                        LOOP
+                            RAISE NOTICE 'item %', item;
+                            IF NOT is_first THEN
+                                arr_out := arr_out || ', ';
+                            END IF;
+                            arr_out := arr_out || '''' || item || '''';
+                            is_first := FALSE;
+                        END LOOP;
+                ELSE
+                    SELECT ARRAY(SELECT jsonb_array_elements(value -> 'value')) INTO arr_in;
+
+                    FOREACH item1 IN ARRAY arr_in
+                        LOOP
+                            RAISE NOTICE 'item %', item1;
+                            IF NOT is_first THEN
+                                arr_out := arr_out || ', ';
+                            END IF;
+                            arr_out := arr_out || item1; -- Giữ nguyên số nguyên
+                            is_first := FALSE;
+                        END LOOP;
+                END IF;
+
+                -- Kiểm tra và chuẩn hóa cú pháp
+                arr_out := '(' || arr_out || ')';
+
+                -- Chỉ xử lý khi logical là 'not in'
+                IF logical = 'not in' THEN
+                    RAISE NOTICE 'NOT IN VALUE: %', arr_out;
+                END IF;
+
+                -- Thêm vào điều kiện đúng cách
+                IF sta = 'START' THEN
+                    cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+                ELSIF sta = 'END' THEN
+                    cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ) ' || rel || ' ';
+                ELSE
+                    cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+                END IF;
+
+                CONTINUE;
+            END IF;
+
+
+            -- Determine if value is string or number and format appropriately
+            IF logical = 'like' THEN
+                val := '''%' || lower(replace(value ->> 'value', '''', '''''')) || '%''';
+                name_c := 'lower(' || name_c || ')';
+--          name_c := lower(name_c);
+            ELSE
+                raise notice 'type of: %', jsonb_typeof(value -> 'value');
+                if jsonb_typeof(value -> 'value') = 'string' then
+                    val := '''' || replace(value ->> 'value', '''', '''''') || '''';
+                else
+                    val := value ->> 'value';
+                end if;
+            END IF;
+
+            -- Check status and build conditions
+            IF sta = 'START' THEN
+                cond := cond || ' (' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+            ELSIF sta = 'END' THEN
+                IF rel = 'NONE' THEN
+                    cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ';
+                ELSE
+                    cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ' || rel || ' ';
+                END IF;
+            ELSE
+                cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+            END IF;
+        END LOOP;
+
+    IF cond ~ ' NONE $' or cond ~ ' AND $' or cond ~ ' OR $' THEN
+        cond := regexp_replace(cond, ' NONE $', '');
+        cond := regexp_replace(cond, ' AND $', '');
+        cond := regexp_replace(cond, ' OR $', '');
+    END IF;
+
+    raise notice 'cond: %' ,cond;
+
+    IF cond != '' THEN
+        cond := ' AND ' || cond;
+    END IF;
+
+    -- Build final SQL query
+    sql_query := 'SELECT * FROM ' || tableName || ' WHERE 1 = 1 ' || cond;
+
+    -- ORDER BY condition
+    IF order_by != '' THEN
+        sql_query := sql_query || ' ORDER BY ' || order_by || ' ' ;
+    end if;
+
+    -- LIMIT condition
+    IF page_size > -1 THEN
+        sql_query := sql_query || ' LIMIT ' || page_size;
+    END IF;
+
+    -- OFFSET condition
+    IF page_size > -1 AND page > -1 THEN
+        sql_query := sql_query || ' OFFSET ' || (page * page_size);
+    END IF;
+
+    -- Execute dynamic SQL
+    RAISE NOTICE 'QUERY: %', sql_query;
+    OPEN cur_type FOR EXECUTE sql_query;
+
+    RETURN cur_type;
+END
+$$;
+
+
+
+
+// pagination
+
+
+create function d_pagination_engine(tablename text, json_input json, pagesize integer DEFAULT '-1'::integer, page integer DEFAULT '-1'::integer)
+    returns TABLE(total_pages integer, current_page integer, total_records integer, page_size integer)
+    language plpgsql
+as
+$$
+DECLARE
+    cur_type refcursor;
+    sql_query TEXT := '';
+    key TEXT;
+    value JSONB;
+    sta TEXT;
+    logical TEXT;
+    rel TEXT;
+    name_c TEXT;
+    cond TEXT := '';
+    val TEXT := '';
+   	amount INTEGER := 0;
+   	total_pages INTEGER := 0;
+   	pre_number TEXT;
+   	aft_number TEXT;
+   	arr_in text[];
+   	arr_out text := '' ;
+   	item text;
+   	item1 INTEGER;
+   	is_first BOOLEAN := TRUE;
+begin
+	cur_type := 'cur_type';
+    -- Kiểm tra nếu json_input là object
+    IF json_typeof(json_input) != 'object' THEN
+        RAISE EXCEPTION 'Input JSON must be an object';
+    END IF;
+
+    FOR key IN (SELECT json_object_keys(json_input))
+    LOOP
+        value := json_input -> key;
+        name_c := value ->> 'name';
+        sta := value ->> 'sta';
+        logical := value ->> 'logical';
+        rel := value ->> 'rel';
+
+       if logical in ('is null', 'is not null') then
+        	IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || '  ' || name_c || ' ' || logical  || ' ) ' || rel || ' ';
+        	ELSE
+                cond := cond || '  ' || name_c || ' ' || logical || ' ' || rel || ' ';
+          	END IF;
+        	continue;
+        end if;
+
+       if(jsonb_typeof(value-> 'value') is null) then
+       		continue;
+       end if;
+
+        RAISE NOTICE 'sta: %', sta;
+
+       IF logical = 'between' then
+        	pre_number := value -> 'value' ->> 0 || ' 00:00:00';
+           	aft_number := value -> 'value' ->> 1 || ' 23:59:59';
+        	IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''')' || rel || ' ';
+        	ELSE
+                 cond := cond || ' ' || name_c || ' BETWEEN ''' || pre_number || ''' AND ''' || aft_number || ''' ' || rel || ' ';
+            END IF;
+        	continue;
+       	elseif logical = 'in' or  logical = 'not in' then
+       		if jsonb_typeof(value-> 'value' -> 0) = 'string' then
+       			SELECT ARRAY(SELECT jsonb_array_elements_text(value->'value')) INTO arr_in;
+
+       			FOREACH item IN ARRAY arr_in loop
+		       		raise notice 'item %', item;
+	        		IF NOT is_first THEN
+	            		arr_out := arr_out || ',';
+	       			END IF;
+	        			arr_out := arr_out || '''' || item|| '''';
+	        			is_first := FALSE;
+    			END LOOP;
+       		else
+       			SELECT ARRAY(SELECT jsonb_array_elements(value->'value')) INTO arr_in;
+
+       			FOREACH item1 IN ARRAY arr_in loop
+		       		raise notice 'item %', item1;
+	        		IF NOT is_first THEN
+	            		arr_out := arr_out || ',';
+	       			END IF;
+	        			arr_out := arr_out || '' || item1 || '';
+	        			is_first := FALSE;
+    			END LOOP;
+       		end if;
+
+         arr_out := '(' || arr_out || ')';
+    	 RAISE NOTICE 'ARR: %', arr_out;
+
+			IF sta = 'START' then
+        		cond := cond || ' ( ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+        	ELSIF sta = 'END' then
+        		cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ) ' || rel || ' ';
+        	ELSE
+                cond := cond || '  ' || name_c || ' ' || logical || ' ' || arr_out || ' ' || rel || ' ';
+            END IF;
+           continue;
+        END IF;
+
+        -- Determine if value is string or number and format appropriately
+         IF logical = 'like' THEN
+           val := '''%' || lower(replace(value ->> 'value', '''', '''''')) || '%''';
+           name_c := 'lower(' || name_c || ')';
+--          name_c := lower(name_c);
+        ELSE
+        	raise notice 'type of: %', jsonb_typeof(value -> 'value');
+        	if jsonb_typeof(value -> 'value') = 'string' then
+        		 val := '''' || replace(value ->> 'value', '''', '''''') || '''';
+        	else
+            	val := value ->> 'value';
+           	end if;
+        END IF;
+
+        -- Check status and build conditions
+        IF sta = 'START' THEN
+            cond := cond || ' (' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+        ELSIF sta = 'END' THEN
+            IF rel = 'NONE' THEN
+                cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ';
+            ELSE
+                cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ) ' || rel || ' ';
+            END IF;
+        ELSE
+            cond := cond || ' ' || name_c || ' ' || logical || ' ' || val || ' ' || rel || ' ';
+        END IF;
+    END LOOP;
+
+   	IF cond ~ ' NONE $' or cond ~ ' AND $' or cond ~ ' OR $' THEN
+        cond := regexp_replace(cond, ' NONE $', '');
+       	cond := regexp_replace(cond, ' AND $', '');
+      	cond := regexp_replace(cond, ' OR $', '');
+    END IF;
+
+   IF cond != '' THEN
+   	cond := ' AND ' || cond;
+   END IF;
+    -- Build final SQL query
+    sql_query := 'SELECT COUNT(1) FROM ' || tableName || ' WHERE 1 = 1 ' || cond;
+
+    -- Execute dynamic SQL
+    RAISE NOTICE 'QUERY: %', sql_query;
+    EXECUTE sql_query into amount;
+
+   -- d_user_id asc
+      total_pages := CEIL(amount::DECIMAL / pageSize);
+
+    RETURN QUERY EXECUTE format(
+        'SELECT $1 AS total_pages,
+                $2 AS current_page,
+                $3 AS total_records,
+				$4 as page_size
+		'
+    ) USING total_pages, page, amount, pageSize;
+
+END $$;
+
+alter function d_pagination_engine(text, json, integer, integer) owner to usr_928460c388b4;
+
+
+

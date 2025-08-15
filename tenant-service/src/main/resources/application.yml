@@ -1,0 +1,145 @@
+
+server:
+  servlet:
+    context-path: /tenant-service
+  port: 8701
+
+spring:
+  application:
+    name: TENANT-SERVICE
+  cloud:
+    config:
+      enabled: false
+  profiles:
+    active:
+      - ${SPRING_PROFILES_ACTIVE:dev}
+    group:
+      dev:
+        - dev
+        - api-docs
+  liquibase:
+    enabled: false
+    default-schema: pos
+  jmx:
+    enabled: false
+  data:
+    jpa:
+      repositories:
+        bootstrap-mode: deferred
+  main:
+    allow-bean-definition-overriding: true
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://${DB_HOSTNAME:172.16.3.12}:${DB_PORT:51173}/pos_web_app_db
+    username: postgres
+    password: ${DB_PASSWORD:HrWL(f#vXnrIWNkL}
+    hikari:
+      minimum-idle: 90
+      maximum-pool-size: 90
+  jpa:
+    show-sql: false
+    open-in-view: false
+
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.id.new_generator_mappings: true
+      hibernate.cache.use_second_level_cache: false
+      hibernate.cache.use_query_cache: false
+      hibernate.generate_statistics: false
+      hibernate.jdbc.batch_size: 100
+      hibernate.order_inserts: true
+      hibernate.order_updates: true
+      hibernate.query.fail_on_pagination_over_collection_fetch: true
+      hibernate.query.in_clause_parameter_padding: true
+      hibernate.default_schema: multidb
+    hibernate:
+      ddl-auto: none
+      default_schema: pos
+      naming:
+        physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
+        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    org.springframework.jdbc.core: INFO
+
+redis:
+  hostname: ${REDIS_HOSTNAME:172.16.3.17}
+#172.16.3.17
+
+kafka:
+  hostname: ${KAFKA_HOSTNAME:172.16.3.17}
+  port: ${KAFKA_PORT:9092}
+  topic:
+    synnc-order: sync-order
+  group-order-id: gr-sync-order
+
+google:
+  username: ${GOOGLE_USERNAME:contact@dbiz.com}
+  password: ${GOOGLE_PASSWORD:Dbiz@1234}
+
+datasource:
+  base-url: ${DATASOURCE_URL:jdbc:postgresql://${DB_HOSTNAME:172.16.3.12}:${DB_PORT:51173}/}
+  main:
+    name: ${MAIN_DB_NAME:pos_web_app_db}
+    driver: ${MAIN_DATASOURCE_DRIVER:org.postgresql.Driver}
+    url: ${MAIN_DATASOURCE_URL:jdbc:postgresql://${DB_HOSTNAME:172.16.3.12}:${DB_PORT:51173}/pos_web_app_db}
+    username: ${MAIN_DATASOURCE_USERNAME:postgres}
+    password: ${MAIN_DATASOURCE_PASSWORD:${DB_PASSWORD:HrWL(f#vXnrIWNkL}}
+    host-ip: ${DB_HOST_IP:172.16.3.12}
+    host-port: ${DB_HOST_PORT:12999}
+    host-username: ${DB_HOST_USERNAME:root}
+    host-password: ${DB_HOST_PASSWORD:root}
+env:
+  name: ${ENVIRONMENT:dev}
+
+driver: org.postgresql.Driver
+url: ${spring.datasource.url}
+username: ${spring.datasource.username}
+password: ${spring.datasource.password}
+
+tablespace:
+  location: ${TABLESPACE_LOCATION:/data/postgresql/13/tablespace_directory}
+
+
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      cloudConfig:
+        register-health-indicator: true
+        event-consumer-buffer-size: 10
+        automatic-transition-from-open-to-half-open-enabled: true
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        wait-duration-in-open-state: 5s
+        sliding-window-type: COUNT_BASED
+
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://${HOST_IP_ADDRESS:localhost}:8761/eureka}
+  instance:
+    prefer-ip-address: true
+    ip-address: ${HOST_IP_ADDRESS:localhost}
+jwt:
+  secret: very_strong_secret_very_strong_secret_very_strong_secret_very_strong_secret_very_strong_secret_very_strong_secret
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  health:
+    circuitbreakers:
+      enabled: true
+  endpoint:
+    health:
+      show-details: always

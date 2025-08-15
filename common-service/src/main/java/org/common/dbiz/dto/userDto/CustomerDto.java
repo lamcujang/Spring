@@ -1,0 +1,66 @@
+package org.common.dbiz.dto.userDto;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+import org.common.dbiz.dto.productDto.ImageDto;
+
+import javax.validation.constraints.Size;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+/**
+ *
+ */
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
+//@JsonInclude(JsonInclude.Include.NON_EMPTY)
+public class CustomerDto implements Serializable {
+    Integer id;
+    @Size(max = 32)
+    String code;
+    @Size(max = 255)
+    String name;
+    String phone1;
+    String phone2;
+    @Size(max = 255)
+    String address1;
+    @Size(max = 255)
+    String address2;
+    Long customerPoint;
+    @Size(max = 15)
+    String taxCode;
+    @Size(max = 64)
+    String email;
+    BigDecimal debitAmount;
+    @Size(max = 255)
+    String company;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    LocalDate birthday;
+    ImageDto image;
+    String area;
+    String wards;
+    String isCustomerType;
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE) // Only include in input (deserialize)
+    Integer partnerGroupId;
+    String gender;
+    String isActive = "Y";
+    PartnerGroupDto partnerGroup;
+    String description;
+    BigDecimal totalTransactionAmount;
+    private BigDecimal discount;
+    private Integer erpCustomerId;
+    private String isPosVip;
+    Integer[] ids;
+    private String partnerName;
+    private BigDecimal creditLimit;
+    private String isDebt;
+    private String erpCustomerName;
+
+
+}

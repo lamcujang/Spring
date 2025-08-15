@@ -1,0 +1,31 @@
+databaseChangeLog:
+  -  preConditions:
+
+  -  changeSet:
+       id: createResearchesTable
+       author: dbiz
+       changes:
+         -  createTable:
+              columns:
+                - column:
+                    name: id
+                    type: bigint
+                - column:
+                    name: name
+                    type: varchar
+                - column:
+                    name: description
+                    type: varchar
+              schemaName: pos
+              tableName: researches
+
+  - changeSet:
+      id: createResearchesIdSequence
+      author: dbiz
+      changes:
+        - createSequence:
+            dataType: bigint
+            minValue: 1
+            incrementBy: 1
+            schemaName: pos
+            sequenceName: researches_id_seq

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "dbiz-pos-web",
+  "private_key_id": "ddd52e8c490feaed9e4efbaacc4e417f1b152594",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDh5iS30+aONa1h\nP9fyaOAQ1lXMvpMkbz65FgIplJ9zmhHt/OoNINsmpjsCMt1REVveAuDWwAvVnWpy\n/HzKJxlSPgcxLd8C8x3W4vuDIgJxLcSJbTKG1YtOXC+Cv5uAtQvxsKeHM3c93s4W\nqojztIByM2g7jjpNsBY+veLAiPLmL3LTl2LNKv/XnrhMcGhhtq/tokviJL876h/I\n2xzs7ytFuZ+ZOFqJdctVgxnxZmxfXYdHK5RbE+Kvbsqdj3PlgIySewqFT1mvJK6p\nMYQqSgXIHy8GGRXOMuy8wQge9hh4Uwh5H/PkwUbV3Z2oRgfiemwJKp+84XupR8Vf\n5/kfLlN7AgMBAAECggEAC64HEvwhTRQIaWFQLIfwod47JHFsETOxRgeVyAmXrvX1\n3Fy5y0D6I8bvgR8ZI1Jm8hUrA999HSfc86ILX7Zi0EZFv+yzvabNUal9wJt3DdwE\nb+iV9rO+1qfciwGWLDLwMahlGQ/3p9rHxBNALn2UMJNo3b9uU0r583eE7FiIWo9b\nnT8HEbaFN3U1HztjnmZYXWiUM4CrenAJzb5buOgUsSITtsvx0FOjyu17mUVGQElA\n4X+qYlrN0p6nWLJN7ojJ+C+FRF7EzPk8iWBWxlmwNhd1SLk0PmyPG4IALb2NgJr+\nOwIBKmLS4sgcGhYPdbWanVavHzYgsdRTvmn4MoassQKBgQDz93tCHz+HlO1Rusr8\nAySAhxkcnK+oPobvQmpAwWUNR1hqAPRo8BKDJ8X56JprEolcr9LAI5BulSW6WfbC\nnW3Nja1DVpJhPsrqR+ijhUf0GwIJGK96uPVHiVfcRjaUEhG8zUdbGCttEMWEnze1\n0OCQ4tqshpVmzpBVzmknJ0KhqwKBgQDtCoZAR1q40cCBKr8oxLeGQ3KC77fgjFN+\nqPRurbn4beiRb1fhaTp54p8hQwR6D8jIlZFsrK1BwS0mhlVK4tuYOdcmWHoFQ5Wt\nXdtIBRwqsyUgxrtkCQ3u7qcISEeZ/qOZHA6tZQucrhbvgYudv8ah7NWQBfbeWTkJ\nJH+353XlcQKBgFjnFGmSDYqQwLKJyTJwyrpzgLkmd/RtZKqHn0SdtP9TwmpOksIy\nyew1cDWTh8IA7UFzaO9PhnBltWvlIMDmsX64ZC0nvQvm3/bj4WjFRuUzelhqQHgO\nMoOxDu1cQMNQmloczCXr9tc1x2R+yMReq5bgtCMun/7owzwhjbwQ2H0lAoGBAL86\nuVnL9tWZaesKmFMEeGZZrV0SlU4TBxzsot1TS++ug2wo3kXcRa+k8um7jjYG291u\nRHbey5t7g7hLsS2L3MpvBzJJOI9cmbjWOhxc+v87rR1HFlA6ucHjSF93KESE2Gih\n6PlbxkVtcNVhtkfaOh3R2eyp0yJH6qqEhoDPux4RAoGAMqhxzlExW5qwyVVIoMdc\nIQPkEp+Kp6GbjIA2ZYAzyBlbla8Yd7FbL9vYTrV22Nq9jnlao88wQdPseAHkxT+L\n774/5ZwBONmiv/Rv3TaIKYPHGQGptUdCdkIFkC1Y5hlRZP6Mn5BbiKLD1Lq6WOsV\n9PhLtOYhCsexzi62pVnAyls=\n-----END PRIVATE KEY-----\n",
+  "client_email": "dbizpos@dbiz-pos-web.iam.gserviceaccount.com",
+  "client_id": "102318800777605750338",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/dbizpos%40dbiz-pos-web.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

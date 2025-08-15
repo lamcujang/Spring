@@ -1,0 +1,13 @@
+databaseChangeLog:
+  -  preConditions:
+
+  - changeSet:
+      id: tenantsAddPrimaryKeyOnId
+      author: dbiz
+      changes:
+        - addPrimaryKey:
+            columnNames: id
+            constraintName: tenants_PK
+            schemaName: pos
+            tableName: tenants
+            validate: true
